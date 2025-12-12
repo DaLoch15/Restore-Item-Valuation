@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/Button';
@@ -10,6 +10,11 @@ import { PhotoUploader } from '@/components/PhotoUploader';
 import { PhotoGrid } from '@/components/PhotoGrid';
 import { PhotoPreviewModal } from '@/components/PhotoPreviewModal';
 import { SelectionBar } from '@/components/SelectionBar';
+import {
+  AnalysisButton,
+  AnalysisConfirmDialog,
+  AnalysisProgress,
+} from '@/components/analysis';
 import { useProject } from '@/hooks/useProjects';
 import {
   useFolders,
@@ -24,10 +29,16 @@ import {
   useDeletePhoto,
   useBulkDeletePhotos,
 } from '@/hooks/usePhotos';
+import {
+  useTriggerAnalysis,
+  useLatestProjectJob,
+} from '@/hooks/useAnalysis';
+import { isJobRunning } from '@/api/analysis';
 import { getErrorMessage } from '@/api/client';
 import { getRoomType } from '@/lib/constants';
 import type { Folder } from '@/api/folders';
 import type { Photo } from '@/api/photos';
+import type { AnalysisJob } from '@/api/analysis';
 
 export function ProjectPage() {
   const { id: projectId } = useParams<{ id: string }>();
@@ -59,7 +70,25 @@ export function ProjectPage() {
   const [previewPhoto, setPreviewPhoto] = useState<Photo | null>(null);
   const [deletingPhoto, setDeletingPhoto] = useState<Photo | null>(null);
 
+  // Analysis state
+  const [isAnalysisDialogOpen, setIsAnalysisDialogOpen] = useState(false);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const triggerAnalysis = useTriggerAnalysis();
+  const { data: latestJob, isRunning: hasRunningJob } = useLatestProjectJob(projectId);
+
+  // Calculate total photos across all folders
+  const totalPhotos = useMemo(() => {
+    return folders.reduce((sum, folder) => sum + (folder.photoCount || 0), 0);
+  }, [folders]);
+
+  const folderCount = folders.length;
+  const estimatedMinutes = Math.max(1, Math.ceil((totalPhotos * 10) / 60));
+
   const isSelectionMode = selectedPhotoIds.size > 0;
+
+  // Determine if we should show the analysis progress
+  const activeJobId = currentJobId || (hasRunningJob ? latestJob?.id : null);
+  const showProgress = !!activeJobId && (currentJobId ? true : isJobRunning(latestJob));
 
   const handleLogout = () => {
     logout();
@@ -185,6 +214,25 @@ export function ProjectPage() {
     }
   };
 
+  // Analysis handlers
+  const handleTriggerAnalysis = async () => {
+    if (!projectId) return;
+
+    try {
+      const result = await triggerAnalysis.mutateAsync(projectId);
+      setCurrentJobId(result.jobId);
+      setIsAnalysisDialogOpen(false);
+    } catch (err) {
+      console.error('Failed to trigger analysis:', getErrorMessage(err));
+    }
+  };
+
+  const handleAnalysisComplete = useCallback((job: AnalysisJob) => {
+    console.log('Analysis complete:', job);
+    // Job completed, clear the current job ID so we can show results
+    // but keep the progress component visible to show results
+  }, []);
+
   if (projectLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -240,6 +288,18 @@ export function ProjectPage() {
               <h1 className="text-xl font-display font-bold text-slate-900">
                 {project.name}
               </h1>
+              {/* Project status badge */}
+              <span
+                className={`px-2 py-1 text-xs font-medium rounded-full ${
+                  project.status === 'COMPLETED'
+                    ? 'bg-green-100 text-green-700'
+                    : project.status === 'PROCESSING'
+                    ? 'bg-yellow-100 text-yellow-700'
+                    : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {project.status}
+              </span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-slate-600">
@@ -256,24 +316,108 @@ export function ProjectPage() {
       {/* Main content - two column layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar - Folder list */}
-        <aside className="w-72 flex-shrink-0 bg-white border-r border-slate-200 overflow-hidden">
-          <FolderList
-            folders={folders}
-            selectedFolderId={selectedFolder?.id || null}
-            onSelectFolder={(folder) => {
-              setSelectedFolder(folder);
-              setSelectedPhotoIds(new Set());
-            }}
-            onEditFolder={setEditingFolder}
-            onDeleteFolder={setDeletingFolder}
-            onReorder={handleReorder}
-            onAddFolder={() => setIsCreateOpen(true)}
-            isLoading={foldersLoading}
-          />
+        <aside className="w-72 flex-shrink-0 bg-white border-r border-slate-200 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-hidden">
+            <FolderList
+              folders={folders}
+              selectedFolderId={selectedFolder?.id || null}
+              onSelectFolder={(folder) => {
+                setSelectedFolder(folder);
+                setSelectedPhotoIds(new Set());
+              }}
+              onEditFolder={setEditingFolder}
+              onDeleteFolder={setDeletingFolder}
+              onReorder={handleReorder}
+              onAddFolder={() => setIsCreateOpen(true)}
+              isLoading={foldersLoading}
+            />
+          </div>
+
+          {/* Analysis button in sidebar footer */}
+          {!showProgress && (
+            <div className="p-4 border-t border-slate-200 bg-slate-50">
+              <AnalysisButton
+                photoCount={totalPhotos}
+                folderCount={folderCount}
+                onClick={() => setIsAnalysisDialogOpen(true)}
+                disabled={hasRunningJob}
+                isLoading={triggerAnalysis.isPending}
+              />
+            </div>
+          )}
         </aside>
 
         {/* Content area */}
         <main className="flex-1 overflow-y-auto">
+          {/* Analysis Progress (shown when job is running or just completed) */}
+          {showProgress && activeJobId && (
+            <div className="p-6">
+              <AnalysisProgress
+                jobId={activeJobId}
+                totalPhotos={totalPhotos}
+                onComplete={handleAnalysisComplete}
+              />
+            </div>
+          )}
+
+          {/* Show completed job results if there's a completed job but no active progress */}
+          {!showProgress && latestJob?.status === 'COMPLETED' && latestJob.resultsSummary && (
+            <div className="p-6">
+              <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                      <svg
+                        className="w-5 h-5 text-green-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-green-900">
+                        Analysis Complete
+                      </h3>
+                      <p className="text-sm text-green-700">
+                        {(latestJob.resultsSummary as { totalItemsIdentified?: number }).totalItemsIdentified || 0} items identified
+                      </p>
+                    </div>
+                  </div>
+                  {latestJob.sheetUrl && (
+                    <a
+                      href={latestJob.sheetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
+                      </svg>
+                      View Report
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {selectedFolder ? (
             <div className="p-6">
               {/* Folder header */}
@@ -433,6 +577,17 @@ export function ProjectPage() {
         onConfirm={handleDeleteSinglePhoto}
         onCancel={() => setDeletingPhoto(null)}
         isLoading={deletePhotoMutation.isPending}
+      />
+
+      {/* Analysis confirmation dialog */}
+      <AnalysisConfirmDialog
+        isOpen={isAnalysisDialogOpen}
+        photoCount={totalPhotos}
+        folderCount={folderCount}
+        estimatedMinutes={estimatedMinutes}
+        onConfirm={handleTriggerAnalysis}
+        onCancel={() => setIsAnalysisDialogOpen(false)}
+        isLoading={triggerAnalysis.isPending}
       />
     </div>
   );

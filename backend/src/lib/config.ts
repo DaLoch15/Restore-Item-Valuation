@@ -17,7 +17,9 @@ const envSchema = z.object({
 
   // n8n config
   N8N_WEBHOOK_URL: z.string().url().optional(),
+  N8N_WEBHOOK_API_KEY: z.string().optional(),
   N8N_CALLBACK_SECRET: z.string().optional(),
+  N8N_CALLBACK_BASE_URL: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
