@@ -35,7 +35,7 @@ export function RegisterPage() {
 
     try {
       const response = await register({ email, password, name });
-      setAuth(response.user, response.accessToken, response.refreshToken);
+      setAuth(response.user, response.accessToken);
       navigate('/');
     } catch (err) {
       setError(getErrorMessage(err));

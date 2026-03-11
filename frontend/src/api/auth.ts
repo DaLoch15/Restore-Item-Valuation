@@ -11,11 +11,17 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
   return response.data;
 }
 
-export async function refreshToken(refreshToken: string): Promise<{ accessToken: string }> {
-  const response = await apiClient.post<{ accessToken: string }>('/auth/refresh', {
-    refreshToken,
-  });
+export async function refreshToken(): Promise<{ accessToken: string }> {
+  const response = await apiClient.post<{ accessToken: string }>('/auth/refresh');
   return response.data;
+}
+
+export async function logout(): Promise<void> {
+  await apiClient.post('/auth/logout');
+}
+
+export async function logoutAll(): Promise<void> {
+  await apiClient.post('/auth/logout-all');
 }
 
 export async function getCurrentUser(): Promise<{ user: User }> {

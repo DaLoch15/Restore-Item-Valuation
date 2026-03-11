@@ -12,10 +12,6 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
-export const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(1, 'Refresh token is required'),
-});
-
 // Project schemas
 export const createProjectSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200, 'Name too long'),
@@ -52,10 +48,28 @@ export const triggerAnalysisSchema = z.object({
   projectId: z.string().min(1, 'Project ID is required'),
 });
 
+// Inventory schemas
+export const updateInventoryItemSchema = z.object({
+  description: z.string().min(1).max(500).optional(),
+  brand: z.string().max(200).nullable().optional(),
+  model: z.string().max(200).nullable().optional(),
+  condition: z.enum(['new', 'like-new', 'good', 'fair', 'poor']).optional(),
+  quantity: z.number().int().positive().optional(),
+  rcv: z.number().positive().optional(),
+  material: z.string().max(200).nullable().optional(),
+  color: z.string().max(100).nullable().optional(),
+  catselCode: z.string().regex(/^\w{2,}\/\w{4,}$/, 'Must match XX/XXXX pattern').optional(),
+  isVerified: z.boolean().optional(),
+});
+
+export const bulkUpdateInventorySchema = z.object({
+  itemIds: z.array(z.string()).min(1, 'At least one item ID required'),
+  updates: updateInventoryItemSchema,
+});
+
 // Type exports
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
-export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
 export type CreateFolderInput = z.infer<typeof createFolderSchema>;
@@ -63,3 +77,5 @@ export type UpdateFolderInput = z.infer<typeof updateFolderSchema>;
 export type ReorderFoldersInput = z.infer<typeof reorderFoldersSchema>;
 export type BulkDeletePhotosInput = z.infer<typeof bulkDeletePhotosSchema>;
 export type TriggerAnalysisInput = z.infer<typeof triggerAnalysisSchema>;
+export type UpdateInventoryItemInput = z.infer<typeof updateInventoryItemSchema>;
+export type BulkUpdateInventoryInput = z.infer<typeof bulkUpdateInventorySchema>;

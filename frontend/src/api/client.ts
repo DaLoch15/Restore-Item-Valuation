@@ -8,6 +8,7 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
 });
 
 // Request interceptor - add auth header
@@ -57,13 +58,7 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const { refreshToken, logout, setAccessToken } = useAuthStore.getState();
-
-    // No refresh token, logout
-    if (!refreshToken) {
-      logout();
-      return Promise.reject(error);
-    }
+    const { logout, setAccessToken } = useAuthStore.getState();
 
     // If already refreshing, queue this request
     if (isRefreshing) {
@@ -84,9 +79,12 @@ apiClient.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      const response = await axios.post(`${API_URL}/api/auth/refresh`, {
-        refreshToken,
-      });
+      // Cookie is sent automatically via withCredentials
+      const response = await axios.post(
+        `${API_URL}/api/auth/refresh`,
+        {},
+        { withCredentials: true }
+      );
 
       const { accessToken: newAccessToken } = response.data;
       setAccessToken(newAccessToken);

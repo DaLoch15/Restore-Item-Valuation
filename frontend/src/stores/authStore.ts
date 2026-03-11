@@ -5,12 +5,11 @@ import type { User } from 'shared';
 interface AuthState {
   user: User | null;
   accessToken: string | null;
-  refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
 
   // Actions
-  setAuth: (user: User, accessToken: string, refreshToken: string) => void;
+  setAuth: (user: User, accessToken: string) => void;
   setAccessToken: (accessToken: string) => void;
   logout: () => void;
   setLoading: (isLoading: boolean) => void;
@@ -21,15 +20,13 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       accessToken: null,
-      refreshToken: null,
       isAuthenticated: false,
       isLoading: true,
 
-      setAuth: (user, accessToken, refreshToken) =>
+      setAuth: (user, accessToken) =>
         set({
           user,
           accessToken,
-          refreshToken,
           isAuthenticated: true,
           isLoading: false,
         }),
@@ -41,7 +38,6 @@ export const useAuthStore = create<AuthState>()(
         set({
           user: null,
           accessToken: null,
-          refreshToken: null,
           isAuthenticated: false,
           isLoading: false,
         }),
@@ -53,12 +49,9 @@ export const useAuthStore = create<AuthState>()(
       name: 'auth-storage',
       partialize: (state) => ({
         user: state.user,
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
       onRehydrateStorage: () => (state) => {
-        // Set loading to false once rehydrated
         state?.setLoading(false);
       },
     }

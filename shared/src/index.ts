@@ -124,7 +124,6 @@ export interface BulkDeletePhotosRequest {
 export interface AuthResponse {
   user: User;
   accessToken: string;
-  refreshToken: string;
 }
 
 export interface TriggerAnalysisResponse {

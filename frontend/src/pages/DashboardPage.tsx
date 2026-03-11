@@ -14,6 +14,7 @@ import {
   useDeleteProject,
 } from '@/hooks/useProjects';
 import { getErrorMessage } from '@/api/client';
+import { logout as apiLogout } from '@/api/auth';
 import type { Project } from '@/api/projects';
 
 export function DashboardPage() {
@@ -29,7 +30,12 @@ export function DashboardPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [deletingProject, setDeletingProject] = useState<Project | null>(null);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await apiLogout();
+    } catch {
+      // Best-effort server-side logout
+    }
     logout();
   };
 

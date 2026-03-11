@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
 import { config } from './lib/config';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -12,6 +14,8 @@ import photoRoutes from './routes/photos';
 import folderPhotoRoutes from './routes/folderPhotos';
 import analysisRoutes from './routes/analysis';
 import webhookRoutes from './routes/webhooks';
+import inventoryRoutes from './routes/inventory';
+import reportRoutes from './routes/reports';
 
 const app = express();
 
@@ -20,6 +24,16 @@ app.use(helmet());
 app.use(cors({
   origin: config.FRONTEND_URL,
   credentials: true,
+}));
+app.use(cookieParser());
+
+// Global rate limiting
+app.use(rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 100, // 100 requests per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMITED', message: 'Too many requests, please try again later' } },
 }));
 
 // Body parsing - 50mb limit for photo uploads
@@ -46,6 +60,8 @@ app.use('/api/folders/:folderId/photos', folderPhotoRoutes);
 app.use('/api/photos', photoRoutes);
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/reports', reportRoutes);
 
 // 404 handler for unknown routes
 app.use((_req, res) => {

@@ -22,7 +22,7 @@ export function LoginPage() {
 
     try {
       const response = await login({ email, password });
-      setAuth(response.user, response.accessToken, response.refreshToken);
+      setAuth(response.user, response.accessToken);
       navigate('/');
     } catch (err) {
       setError(getErrorMessage(err));

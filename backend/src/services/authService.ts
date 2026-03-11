@@ -5,18 +5,13 @@ import prisma from '../lib/prisma';
 import { config } from '../lib/config';
 import {
   AuthInvalidCredentialsError,
-  AuthTokenInvalidError,
-  ConflictError,
   NotFoundError,
+  ConflictError,
 } from '../lib/errors';
 import { JwtPayload } from '../middleware/auth';
+import * as tokenService from './tokenService';
 
 const BCRYPT_ROUNDS = 12;
-
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-}
 
 export interface UserWithoutPassword {
   id: string;
@@ -36,110 +31,89 @@ function excludePassword(user: User): UserWithoutPassword {
   };
 }
 
-function generateTokens(user: User): AuthTokens {
+function generateAccessToken(user: User): string {
   const payload: JwtPayload = {
     userId: user.id,
     email: user.email,
   };
 
-  const accessToken = jwt.sign(payload, config.JWT_SECRET, {
-    expiresIn: config.JWT_ACCESS_EXPIRY,
+  return jwt.sign(payload, config.JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: config.JWT_ACCESS_EXPIRY as jwt.SignOptions['expiresIn'],
   });
-
-  const refreshToken = jwt.sign(payload, config.JWT_REFRESH_SECRET, {
-    expiresIn: config.JWT_REFRESH_EXPIRY,
-  });
-
-  return { accessToken, refreshToken };
 }
 
 export async function register(
   email: string,
   password: string,
   name: string
-): Promise<{ user: UserWithoutPassword; tokens: AuthTokens }> {
-  // Check if user already exists
+): Promise<{ user: UserWithoutPassword; accessToken: string; rawRefreshToken: string }> {
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
     throw new ConflictError('User', 'email');
   }
 
-  // Hash password
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
-  // Create user
   const user = await prisma.user.create({
-    data: {
-      email,
-      passwordHash,
-      name,
-    },
+    data: { email, passwordHash, name },
   });
 
-  const tokens = generateTokens(user);
+  const accessToken = generateAccessToken(user);
+  const rawRefreshToken = await tokenService.createRefreshToken(user.id);
 
   return {
     user: excludePassword(user),
-    tokens,
+    accessToken,
+    rawRefreshToken,
   };
 }
 
 export async function login(
   email: string,
   password: string
-): Promise<{ user: UserWithoutPassword; tokens: AuthTokens }> {
-  // Find user
+): Promise<{ user: UserWithoutPassword; accessToken: string; rawRefreshToken: string }> {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
     throw new AuthInvalidCredentialsError();
   }
 
-  // Verify password
   const isValidPassword = await bcrypt.compare(password, user.passwordHash);
   if (!isValidPassword) {
     throw new AuthInvalidCredentialsError();
   }
 
-  const tokens = generateTokens(user);
+  const accessToken = generateAccessToken(user);
+  const rawRefreshToken = await tokenService.createRefreshToken(user.id);
 
   return {
     user: excludePassword(user),
-    tokens,
+    accessToken,
+    rawRefreshToken,
   };
 }
 
 export async function refreshAccessToken(
-  refreshToken: string
-): Promise<{ accessToken: string }> {
-  try {
-    const decoded = jwt.verify(refreshToken, config.JWT_REFRESH_SECRET) as JwtPayload;
+  rawRefreshToken: string
+): Promise<{ accessToken: string; newRawRefreshToken: string }> {
+  const { newRawToken, userId } = await tokenService.rotateRefreshToken(rawRefreshToken);
 
-    // Verify user still exists
-    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
-    if (!user) {
-      throw new AuthTokenInvalidError('User no longer exists');
-    }
-
-    // Generate new access token
-    const payload: JwtPayload = {
-      userId: user.id,
-      email: user.email,
-    };
-
-    const accessToken = jwt.sign(payload, config.JWT_SECRET, {
-      expiresIn: config.JWT_ACCESS_EXPIRY,
-    });
-
-    return { accessToken };
-  } catch (error) {
-    if (error instanceof jwt.TokenExpiredError) {
-      throw new AuthTokenInvalidError('Refresh token has expired');
-    }
-    if (error instanceof jwt.JsonWebTokenError) {
-      throw new AuthTokenInvalidError('Invalid refresh token');
-    }
-    throw error;
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    throw new NotFoundError('User', userId);
   }
+
+  const accessToken = generateAccessToken(user);
+
+  return { accessToken, newRawRefreshToken: newRawToken };
+}
+
+export async function logout(rawRefreshToken: string): Promise<void> {
+  await tokenService.revokeToken(rawRefreshToken);
+}
+
+export async function logoutAll(userId: string): Promise<void> {
+  await tokenService.revokeAllUserTokens(userId);
 }
 
 export async function getCurrentUser(userId: string): Promise<UserWithoutPassword> {
