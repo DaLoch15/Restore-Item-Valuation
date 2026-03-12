@@ -2,9 +2,8 @@ import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import { prisma } from '../lib/prisma';
-import { uploadFile, deleteFile, deleteFiles, getSignedUrl } from '../lib/storage';
+import { uploadFile, deleteFiles, getSignedUrl } from '../lib/storage';
 import { NotFoundError, ForbiddenError, UploadFailedError } from '../lib/errors';
-import { verifyProjectOwnership } from './projectService';
 
 // Allowed MIME types
 const ALLOWED_MIME_TYPES = [

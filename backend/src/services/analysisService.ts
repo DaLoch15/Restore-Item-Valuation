@@ -32,10 +32,37 @@ interface N8nTriggerPayload {
   projectName: string;
   analysisJobId: string;
   callbackUrl: string;
-  callbackSecret: string;
   folders: N8nFolderPayload[];
   totalPhotos: number;
   totalFolders: number;
+}
+
+interface N8nCallbackItem {
+  photoId?: string;
+  folderId?: string;
+  objectType: string;
+  category: string;
+  selector: string;
+  catselCode: string;
+  brand?: string | null;
+  model?: string | null;
+  description: string;
+  condition: string;
+  material?: string | null;
+  color?: string | null;
+  sizeEstimate?: string | null;
+  quantity: number;
+  rcv: number;
+  depreciationRate: number;
+  depreciationAmount: number;
+  acv: number;
+  ageYears: number;
+  depreciationMethod: string;
+  priceSource: string;
+  confidence: number;
+  identificationSource: string;
+  pricingSearchQuery?: string | null;
+  thumbnailUrl?: string | null;
 }
 
 interface N8nCallbackPayload {
@@ -50,6 +77,7 @@ interface N8nCallbackPayload {
     processingTimeMs: number;
     sheetUrl: string;
   };
+  items?: N8nCallbackItem[];
   error?: string;
 }
 
@@ -177,7 +205,6 @@ export async function triggerAnalysis(
       projectName: project.name,
       analysisJobId: job.id,
       callbackUrl,
-      callbackSecret: config.N8N_CALLBACK_SECRET || 'dev-secret',
       folders: foldersPayload,
       totalPhotos,
       totalFolders: foldersPayload.length,
@@ -193,7 +220,7 @@ export async function triggerAnalysis(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': config.N8N_WEBHOOK_API_KEY || '',
+          ...(config.N8N_WEBHOOK_API_KEY && { 'X-API-Key': config.N8N_WEBHOOK_API_KEY }),
         },
         body: JSON.stringify(payload),
       });
@@ -338,9 +365,45 @@ export async function processAnalysisCallback(
       },
     });
 
-    // Update project status to COMPLETED
+    // Create inventory items from callback data
+    if (payload.items && payload.items.length > 0) {
+      await prisma.inventoryItem.createMany({
+        data: payload.items.map(item => ({
+          analysisJobId: payload.analysisJobId,
+          folderId: item.folderId || '',
+          photoId: item.photoId || null,
+          objectType: item.objectType,
+          category: item.category,
+          selector: item.selector,
+          catselCode: item.catselCode,
+          brand: item.brand || null,
+          model: item.model || null,
+          description: item.description,
+          condition: item.condition,
+          material: item.material || null,
+          color: item.color || null,
+          sizeEstimate: item.sizeEstimate || null,
+          quantity: item.quantity || 1,
+          rcv: item.rcv,
+          depreciationRate: item.depreciationRate,
+          depreciationAmount: item.depreciationAmount,
+          acv: item.acv,
+          ageYears: item.ageYears,
+          depreciationMethod: item.depreciationMethod,
+          priceSource: item.priceSource,
+          confidence: item.confidence,
+          identificationSource: item.identificationSource,
+          pricingSearchQuery: item.pricingSearchQuery || null,
+          thumbnailUrl: item.thumbnailUrl || null,
+        })),
+        skipDuplicates: true,
+      });
+      console.log(`[Webhook] Created ${payload.items.length} inventory items`);
+    }
+
+    // Update project status to COMPLETED (use job.projectId, not payload)
     await prisma.project.update({
-      where: { id: payload.projectId },
+      where: { id: job.projectId },
       data: { status: 'COMPLETED' },
     });
   } else {
@@ -353,9 +416,9 @@ export async function processAnalysisCallback(
       },
     });
 
-    // Update project status back to READY
+    // Update project status back to READY (use job.projectId, not payload)
     await prisma.project.update({
-      where: { id: payload.projectId },
+      where: { id: job.projectId },
       data: { status: 'READY' },
     });
   }
@@ -370,7 +433,7 @@ export function verifyHmacSignature(
   payload: object,
   signature: string
 ): boolean {
-  const secret = config.N8N_CALLBACK_SECRET || 'dev-secret';
+  const secret = config.N8N_CALLBACK_SECRET;
 
   const expectedSignature = crypto
     .createHmac('sha256', secret)

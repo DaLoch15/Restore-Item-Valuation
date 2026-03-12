@@ -20,5 +20,5 @@ export type RoomType = (typeof ROOM_TYPES)[number]['value'];
 
 // Get room type config by value
 export function getRoomType(value: string | null | undefined) {
-  return ROOM_TYPES.find((rt) => rt.value === value) || ROOM_TYPES[ROOM_TYPES.length - 1];
+  return ROOM_TYPES.find((rt) => rt.value === value) ?? ROOM_TYPES[ROOM_TYPES.length - 1]!;
 }

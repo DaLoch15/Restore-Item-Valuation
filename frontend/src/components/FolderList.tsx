@@ -58,7 +58,7 @@ export function FolderList({
       // Create new order
       const newFolders = [...folders];
       const [movedFolder] = newFolders.splice(oldIndex, 1);
-      newFolders.splice(newIndex, 0, movedFolder);
+      newFolders.splice(newIndex, 0, movedFolder!);
 
       // Call reorder with new order of IDs
       onReorder(newFolders.map((f) => f.id));

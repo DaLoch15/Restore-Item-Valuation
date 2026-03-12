@@ -10,8 +10,6 @@ router.post(
   '/n8n/analysis-complete',
   asyncHandler(async (req: Request, res: Response) => {
     console.log('[Webhook] Received n8n callback');
-    console.log('[Webhook] Headers:', JSON.stringify(req.headers, null, 2));
-    console.log('[Webhook] Body:', JSON.stringify(req.body, null, 2));
 
     // Get signature from header
     const signature = req.headers['x-webhook-signature'] as string;
@@ -42,7 +40,7 @@ router.post(
 
 // POST /api/webhooks/n8n/mock-complete - Development endpoint to simulate n8n callback
 // This allows testing the analysis flow without an actual n8n instance
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV === 'development') {
   router.post(
     '/n8n/mock-complete',
     asyncHandler(async (req: Request, res: Response) => {
@@ -71,7 +69,7 @@ if (process.env.NODE_ENV !== 'production') {
         };
 
         // Generate signature
-        const secret = config.N8N_CALLBACK_SECRET || 'dev-secret';
+        const secret = config.N8N_CALLBACK_SECRET;
         const signature = crypto
           .createHmac('sha256', secret)
           .update(JSON.stringify(payload))

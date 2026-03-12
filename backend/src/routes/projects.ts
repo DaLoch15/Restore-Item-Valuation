@@ -42,7 +42,7 @@ router.get(
   '/:id',
   asyncHandler(async (req, res) => {
     const userId = req.user!.userId;
-    const project = await projectService.getProject(userId, req.params.id);
+    const project = await projectService.getProject(userId, req.params.id!);
     res.json({ project });
   })
 );
@@ -55,7 +55,7 @@ router.patch(
     const userId = req.user!.userId;
     const project = await projectService.updateProject(
       userId,
-      req.params.id,
+      req.params.id!,
       req.body
     );
     res.json({ project });
@@ -67,7 +67,7 @@ router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
     const userId = req.user!.userId;
-    await projectService.deleteProject(userId, req.params.id);
+    await projectService.deleteProject(userId, req.params.id!);
     res.json({ success: true });
   })
 );
@@ -83,7 +83,7 @@ router.patch(
     const userId = req.user!.userId;
     const folders = await folderService.reorderFolders(
       userId,
-      req.params.projectId,
+      req.params.projectId!,
       req.body.folderIds
     );
     res.json({ folders });
@@ -95,7 +95,7 @@ router.get(
   '/:projectId/folders',
   asyncHandler(async (req, res) => {
     const userId = req.user!.userId;
-    const folders = await folderService.listFolders(userId, req.params.projectId);
+    const folders = await folderService.listFolders(userId, req.params.projectId!);
     res.json({ folders });
   })
 );
@@ -108,7 +108,7 @@ router.post(
     const userId = req.user!.userId;
     const folder = await folderService.createFolder(
       userId,
-      req.params.projectId,
+      req.params.projectId!,
       req.body
     );
     res.status(201).json({ folder });
@@ -123,8 +123,8 @@ router.patch(
     const userId = req.user!.userId;
     const folder = await folderService.updateFolder(
       userId,
-      req.params.projectId,
-      req.params.id,
+      req.params.projectId!,
+      req.params.id!,
       req.body
     );
     res.json({ folder });
@@ -138,8 +138,8 @@ router.delete(
     const userId = req.user!.userId;
     await folderService.deleteFolder(
       userId,
-      req.params.projectId,
-      req.params.id
+      req.params.projectId!,
+      req.params.id!
     );
     res.json({ success: true });
   })

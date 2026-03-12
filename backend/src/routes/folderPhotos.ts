@@ -41,7 +41,7 @@ router.get(
     const userId = req.user!.userId;
     const { folderId } = req.params;
 
-    const photos = await photoService.listPhotos(userId, folderId);
+    const photos = await photoService.listPhotos(userId, folderId!);
     res.json({ photos });
   })
 );
@@ -68,7 +68,7 @@ router.post(
     // Upload all files
     const results = await Promise.allSettled(
       files.map((file) =>
-        photoService.uploadPhoto(userId, folderId, {
+        photoService.uploadPhoto(userId, folderId!, {
           buffer: file.buffer,
           originalname: file.originalname,
           mimetype: file.mimetype,
@@ -110,7 +110,7 @@ router.delete(
     const { folderId } = req.params;
     const { photoIds } = req.body;
 
-    const result = await photoService.bulkDeletePhotos(userId, folderId, photoIds);
+    const result = await photoService.bulkDeletePhotos(userId, folderId!, photoIds);
     res.json(result);
   })
 );
@@ -122,7 +122,7 @@ router.get(
     const userId = req.user!.userId;
     const { folderId, photoId } = req.params;
 
-    const photo = await photoService.getPhoto(userId, folderId, photoId);
+    const photo = await photoService.getPhoto(userId, folderId!, photoId!);
     res.json({ photo });
   })
 );
@@ -134,7 +134,7 @@ router.delete(
     const userId = req.user!.userId;
     const { folderId, photoId } = req.params;
 
-    await photoService.deletePhoto(userId, folderId, photoId);
+    await photoService.deletePhoto(userId, folderId!, photoId!);
     res.json({ success: true });
   })
 );

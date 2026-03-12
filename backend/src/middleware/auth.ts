@@ -27,7 +27,7 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
   const token = authHeader.slice(7); // Remove 'Bearer ' prefix
 
   try {
-    const decoded = jwt.verify(token, config.JWT_SECRET) as JwtPayload;
+    const decoded = jwt.verify(token, config.JWT_SECRET, { algorithms: ['HS256'] }) as JwtPayload;
     req.user = decoded;
     next();
   } catch (error) {
@@ -53,7 +53,7 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
   const token = authHeader.slice(7);
 
   try {
-    const decoded = jwt.verify(token, config.JWT_SECRET) as JwtPayload;
+    const decoded = jwt.verify(token, config.JWT_SECRET, { algorithms: ['HS256'] }) as JwtPayload;
     req.user = decoded;
   } catch {
     // Ignore token errors in optional auth

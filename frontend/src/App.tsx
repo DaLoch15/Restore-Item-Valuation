@@ -4,6 +4,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { ProjectPage } from '@/pages/ProjectPage';
+import { AnalysisResultsPage } from '@/pages/AnalysisResultsPage';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -75,6 +76,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProjectPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects/:projectId/results/:jobId"
+            element={
+              <ProtectedRoute>
+                <AnalysisResultsPage />
               </ProtectedRoute>
             }
           />

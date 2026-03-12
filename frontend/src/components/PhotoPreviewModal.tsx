@@ -20,14 +20,16 @@ export function PhotoPreviewModal({
   const hasNext = currentIndex < photos.length - 1;
 
   const goToPrev = useCallback(() => {
-    if (hasPrev) {
-      onNavigate(photos[currentIndex - 1]);
+    const prev = photos[currentIndex - 1];
+    if (hasPrev && prev) {
+      onNavigate(prev);
     }
   }, [hasPrev, currentIndex, photos, onNavigate]);
 
   const goToNext = useCallback(() => {
-    if (hasNext) {
-      onNavigate(photos[currentIndex + 1]);
+    const next = photos[currentIndex + 1];
+    if (hasNext && next) {
+      onNavigate(next);
     }
   }, [hasNext, currentIndex, photos, onNavigate]);
 

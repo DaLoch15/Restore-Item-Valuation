@@ -37,3 +37,7 @@ coverage/
 
 # Misc
 *.tsbuildinfo
+
+CLAUDE.md 
+
+.claude/
