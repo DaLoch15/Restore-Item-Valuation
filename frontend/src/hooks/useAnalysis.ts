@@ -3,6 +3,7 @@ import {
   triggerAnalysis,
   fetchAnalysisJob,
   fetchProjectAnalysisJobs,
+  cancelAnalysisJob,
   isJobRunning,
   type TriggerAnalysisResponse,
   type AnalysisJob,
@@ -64,6 +65,20 @@ export function useAnalysisJob(
         return false;
       }
       return pollingInterval;
+    },
+  });
+}
+
+/**
+ * Hook to cancel an analysis job
+ */
+export function useCancelAnalysis() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (jobId: string) => cancelAnalysisJob(jobId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: analysisKeys.all });
     },
   });
 }

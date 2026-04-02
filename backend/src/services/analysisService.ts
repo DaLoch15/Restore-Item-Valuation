@@ -32,36 +32,34 @@ interface N8nTriggerPayload {
   projectName: string;
   analysisJobId: string;
   callbackUrl: string;
+  callbackSecret: string;
   folders: N8nFolderPayload[];
   totalPhotos: number;
   totalFolders: number;
 }
 
+// Matches the exact fields from n8n "Process Agent Results & Calculate ACV" node
 interface N8nCallbackItem {
   photoId?: string;
   folderId?: string;
-  objectType: string;
+  room?: string;
+  description: string;
+  brand?: string | null;
+  model?: string | null;
+  age: number;                  // maps to ageYears in DB
+  condition: string;
+  quantity: number;
+  unitPrice: number;
+  rcv: number;
+  depreciationType: string;     // e.g. 'Age/Condition' or 'Percent'
+  depreciation: number;         // maps to depreciationAmount in DB
+  acv: number;
+  priceSource: string;
+  bestMatchUrl?: string | null;
   category: string;
   selector: string;
   catselCode: string;
-  brand?: string | null;
-  model?: string | null;
-  description: string;
-  condition: string;
-  material?: string | null;
-  color?: string | null;
-  sizeEstimate?: string | null;
-  quantity: number;
-  rcv: number;
-  depreciationRate: number;
-  depreciationAmount: number;
-  acv: number;
-  ageYears: number;
-  depreciationMethod: string;
-  priceSource: string;
   confidence: number;
-  identificationSource: string;
-  pricingSearchQuery?: string | null;
   thumbnailUrl?: string | null;
 }
 
@@ -205,6 +203,7 @@ export async function triggerAnalysis(
       projectName: project.name,
       analysisJobId: job.id,
       callbackUrl,
+      callbackSecret: config.N8N_CALLBACK_SECRET,
       folders: foldersPayload,
       totalPhotos,
       totalFolders: foldersPayload.length,
@@ -366,36 +365,50 @@ export async function processAnalysisCallback(
     });
 
     // Create inventory items from callback data
+    // Field mapping: n8n field names → Prisma InventoryItem columns
     if (payload.items && payload.items.length > 0) {
       await prisma.inventoryItem.createMany({
-        data: payload.items.map(item => ({
-          analysisJobId: payload.analysisJobId,
-          folderId: item.folderId || '',
-          photoId: item.photoId || null,
-          objectType: item.objectType,
-          category: item.category,
-          selector: item.selector,
-          catselCode: item.catselCode,
-          brand: item.brand || null,
-          model: item.model || null,
-          description: item.description,
-          condition: item.condition,
-          material: item.material || null,
-          color: item.color || null,
-          sizeEstimate: item.sizeEstimate || null,
-          quantity: item.quantity || 1,
-          rcv: item.rcv,
-          depreciationRate: item.depreciationRate,
-          depreciationAmount: item.depreciationAmount,
-          acv: item.acv,
-          ageYears: item.ageYears,
-          depreciationMethod: item.depreciationMethod,
-          priceSource: item.priceSource,
-          confidence: item.confidence,
-          identificationSource: item.identificationSource,
-          pricingSearchQuery: item.pricingSearchQuery || null,
-          thumbnailUrl: item.thumbnailUrl || null,
-        })),
+        data: payload.items.map(item => {
+          // Derive depreciationRate from depreciation and rcv
+          const depreciationRate = item.rcv > 0
+            ? Math.round((item.depreciation / item.rcv) * 10000) / 10000
+            : 0;
+
+          // Map depreciationType display string to method name
+          const depreciationMethod = item.depreciationType === 'Percent'
+            ? 'straight_line'
+            : 'straight_line'; // 'Age/Condition' also uses straight_line by default
+
+          return {
+            analysisJobId: payload.analysisJobId,
+            folderId: item.folderId || '',
+            photoId: item.photoId || null,
+            objectType: item.description.split(/[\s,]+/)[0] || 'Unknown',
+            category: item.category,
+            selector: item.selector,
+            catselCode: item.catselCode,
+            brand: item.brand || null,
+            model: item.model || null,
+            description: item.description,
+            condition: item.condition,
+            material: null,
+            color: null,
+            sizeEstimate: null,
+            quantity: item.quantity || 1,
+            rcv: item.rcv,
+            depreciationRate,
+            depreciationAmount: item.depreciation,
+            acv: item.acv,
+            ageYears: item.age,
+            depreciationMethod,
+            priceSource: item.priceSource,
+            confidence: item.confidence,
+            identificationSource: 'ai_analysis',
+            pricingSearchQuery: null,
+            thumbnailUrl: item.thumbnailUrl || null,
+            bestMatchUrl: item.bestMatchUrl || null,
+          };
+        }),
         skipDuplicates: true,
       });
       console.log(`[Webhook] Created ${payload.items.length} inventory items`);
@@ -465,6 +478,51 @@ async function getSignedUrlForAnalysis(storagePath: string): Promise<string> {
   });
 
   return url;
+}
+
+/**
+ * Cancel a stuck analysis job
+ */
+export async function cancelAnalysisJob(
+  jobId: string,
+  userId: string
+): Promise<{ success: boolean; message: string }> {
+  const job = await prisma.analysisJob.findUnique({
+    where: { id: jobId },
+    include: {
+      project: {
+        select: { userId: true },
+      },
+    },
+  });
+
+  if (!job) {
+    throw new NotFoundError('AnalysisJob', jobId);
+  }
+
+  if (job.project.userId !== userId) {
+    throw new ForbiddenError();
+  }
+
+  if (job.status !== 'TRIGGERED' && job.status !== 'PROCESSING' && job.status !== 'PENDING') {
+    return { success: false, message: `Job is already ${job.status.toLowerCase()}` };
+  }
+
+  await prisma.analysisJob.update({
+    where: { id: jobId },
+    data: {
+      status: 'FAILED',
+      completedAt: new Date(),
+      errorMessage: 'Cancelled by user',
+    },
+  });
+
+  await prisma.project.update({
+    where: { id: job.projectId },
+    data: { status: 'READY' },
+  });
+
+  return { success: true, message: 'Analysis job cancelled' };
 }
 
 /**

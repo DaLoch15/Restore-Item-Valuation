@@ -154,6 +154,7 @@ model InventoryItem {
   identificationSource String   @map("identification_source")
   pricingSearchQuery   String?  @map("pricing_search_query")
   thumbnailUrl         String?  @map("thumbnail_url")
+  bestMatchUrl         String?  @map("best_match_url")
   isVerified           Boolean  @default(false) @map("is_verified")
   isEdited             Boolean  @default(false) @map("is_edited")
   createdAt            DateTime @default(now()) @map("created_at")

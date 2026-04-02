@@ -29,6 +29,7 @@ export interface InventoryItem {
   identificationSource: string;
   pricingSearchQuery: string | null;
   thumbnailUrl: string | null;
+  bestMatchUrl: string | null;
   isVerified: boolean;
   isEdited: boolean;
   createdAt: string;

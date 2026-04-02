@@ -144,13 +144,15 @@ export interface ApiErrorResponse {
 
 // === n8n WEBHOOK PAYLOADS ===
 export interface N8nTriggerPayload {
+  mode: string;
   projectId: string;
   projectName: string;
   analysisJobId: string;
   callbackUrl: string;
   callbackSecret: string;
   folders: N8nFolderPayload[];
-  outputSheetId: string;
+  totalPhotos: number;
+  totalFolders: number;
 }
 
 export interface N8nFolderPayload {
@@ -164,6 +166,7 @@ export interface N8nPhotoPayload {
   photoId: string;
   fileName: string;
   downloadUrl: string;
+  thumbnailUrl: string;
   mimeType: string;
 }
 
@@ -172,8 +175,30 @@ export interface N8nCallbackPayload {
   analysisJobId: string;
   projectId: string;
   results?: AnalysisResults & { sheetUrl: string };
+  items?: Array<{
+    photoId?: string;
+    folderId?: string;
+    room?: string;
+    description: string;
+    brand?: string | null;
+    model?: string | null;
+    age: number;
+    condition: string;
+    quantity: number;
+    unitPrice: number;
+    rcv: number;
+    depreciationType: string;
+    depreciation: number;
+    acv: number;
+    priceSource: string;
+    bestMatchUrl?: string | null;
+    category: string;
+    selector: string;
+    catselCode: string;
+    confidence: number;
+    thumbnailUrl?: string | null;
+  }>;
   error?: string;
-  signature: string;
 }
 
 // === ROOM TYPES ===

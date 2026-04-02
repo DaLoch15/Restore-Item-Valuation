@@ -6,6 +6,7 @@ import {
   triggerAnalysis,
   getAnalysisJob,
   getProjectAnalysisJobs,
+  cancelAnalysisJob,
 } from '../services/analysisService';
 
 const router = Router();
@@ -38,6 +39,19 @@ router.get(
     const jobs = await getProjectAnalysisJobs(projectId, userId);
 
     res.json(jobs);
+  })
+);
+
+// POST /api/analysis/:jobId/cancel - Cancel a stuck analysis job
+router.post(
+  '/:jobId/cancel',
+  asyncHandler(async (req: Request, res: Response) => {
+    const jobId = req.params.jobId as string;
+    const userId = req.user!.userId;
+
+    const result = await cancelAnalysisJob(jobId, userId);
+
+    res.json(result);
   })
 );
 

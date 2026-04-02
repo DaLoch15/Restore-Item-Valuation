@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { useAnalysisJob } from '@/hooks/useAnalysis';
+import { useAnalysisJob, useCancelAnalysis } from '@/hooks/useAnalysis';
 import {
   formatCurrency,
   formatProcessingTime,
@@ -29,6 +29,7 @@ export function AnalysisProgress({
 }: AnalysisProgressProps) {
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState(0);
+  const cancelAnalysis = useCancelAnalysis();
 
   const handleComplete = useCallback(
     (job: AnalysisJob) => {
@@ -212,9 +213,18 @@ export function AnalysisProgress({
 
       {/* Current stage description */}
       {!isComplete && !isFailed && (
-        <p className="text-center text-sm text-slate-500">
-          {STAGES[stage]?.description}
-        </p>
+        <div className="text-center">
+          <p className="text-sm text-slate-500 mb-4">
+            {STAGES[stage]?.description}
+          </p>
+          <button
+            onClick={() => cancelAnalysis.mutate(jobId)}
+            disabled={cancelAnalysis.isPending}
+            className="text-sm text-slate-400 hover:text-red-500 transition-colors underline"
+          >
+            {cancelAnalysis.isPending ? 'Cancelling...' : 'Cancel Analysis'}
+          </button>
+        </div>
       )}
 
       {/* Results summary */}

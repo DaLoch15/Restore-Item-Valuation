@@ -64,6 +64,14 @@ export async function fetchProjectAnalysisJobs(projectId: string): Promise<Analy
 }
 
 /**
+ * Cancel a stuck analysis job
+ */
+export async function cancelAnalysisJob(jobId: string): Promise<{ success: boolean; message: string }> {
+  const response = await apiClient.post<{ success: boolean; message: string }>(`/analysis/${jobId}/cancel`);
+  return response.data;
+}
+
+/**
  * Check if a job is still running
  */
 export function isJobRunning(job: AnalysisJob | null | undefined): boolean {
