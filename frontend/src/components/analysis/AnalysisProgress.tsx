@@ -20,12 +20,14 @@ interface AnalysisProgressProps {
   jobId: string;
   totalPhotos: number;
   onComplete?: (job: AnalysisJob) => void;
+  onDismiss?: () => void;
 }
 
 export function AnalysisProgress({
   jobId,
   totalPhotos,
   onComplete,
+  onDismiss,
 }: AnalysisProgressProps) {
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState(0);
@@ -108,7 +110,11 @@ export function AnalysisProgress({
             </svg>
           </div>
         ) : isFailed ? (
-          <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+          <button
+            onClick={onDismiss}
+            className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center hover:bg-red-200 transition-colors cursor-pointer"
+            title="Dismiss"
+          >
             <svg
               className="w-6 h-6 text-red-600"
               fill="none"
@@ -122,7 +128,7 @@ export function AnalysisProgress({
                 d="M6 18L18 6M6 6l12 12"
               />
             </svg>
-          </div>
+          </button>
         ) : (
           <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center">
             <svg

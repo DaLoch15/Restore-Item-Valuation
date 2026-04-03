@@ -362,6 +362,7 @@ export function ProjectPage() {
                 jobId={activeJobId}
                 totalPhotos={totalPhotos}
                 onComplete={handleAnalysisComplete}
+                onDismiss={() => setCurrentJobId(null)}
               />
             </div>
           )}
